@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/dsnet/compress/bzip2"
 	"github.com/ulikunitz/xz"
 )
 
@@ -326,9 +327,12 @@ func createArchive(config Config, patterns []string, filesToArchive []string) er
 	case Gzip:
 		compressedWriter = gzip.NewWriter(output)
 	case Bzip2:
-		// Note: Go's standard library doesn't include a bzip2 writer
-		// We'll need to use a third-party library or implement a wrapper
-		return fmt.Errorf("bzip2 compression not yet implemented")
+		// Use dsnet bzip2 writer
+		bw, err := bzip2.NewWriter(output, &bzip2.WriterConfig{Level: 9})
+		if err != nil {
+			return err
+		}
+		compressedWriter = bw
 	case Xz:
 		compressedWriter, err = xz.NewWriter(output)
 		if err != nil {
