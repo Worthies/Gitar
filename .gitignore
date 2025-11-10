@@ -7,9 +7,13 @@
 *.dll
 *.so
 *.dylib
+gitar
 
 # Test binary, built with `go test -c`
 *.test
+
+# Archive files
+*.zip
 
 # Code coverage profiles and other test artifacts
 *.out
