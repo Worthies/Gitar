@@ -487,22 +487,45 @@ func archiveSpecificFiles(config Config, patterns []string, filesToArchive []str
 
 // addFileToArchive adds a single file to the tar archive
 func addFileToArchive(tarWriter *tar.Writer, filePath, relPath string, info os.FileInfo) error {
-	// Create tar header
-	header, err := tar.FileInfoHeader(info, "")
+	// Use Lstat to get the file's own info (don't follow symlinks)
+	lstat, err := os.Lstat(filePath)
 	if err != nil {
 		return err
 	}
 
-	// Set the name to the relative path
-	header.Name = relPath
+	var header *tar.Header
+
+	// Handle symlinks specially
+	if lstat.Mode()&os.ModeSymlink != 0 {
+		// Read the symlink target
+		linkTarget, err := os.Readlink(filePath)
+		if err != nil {
+			return err
+		}
+		header = &tar.Header{
+			Name:     relPath,
+			Mode:     int64(lstat.Mode().Perm()),
+			Typeflag: tar.TypeSymlink,
+			Linkname: linkTarget,
+			ModTime:  lstat.ModTime(),
+			// Size for symlinks should be 0
+		}
+	} else {
+		// For regular files and directories, use FileInfoHeader
+		header, err = tar.FileInfoHeader(info, "")
+		if err != nil {
+			return err
+		}
+		header.Name = relPath
+	}
 
 	// Write header
 	if err := tarWriter.WriteHeader(header); err != nil {
 		return err
 	}
 
-	// If it's a file, write the content
-	if !info.IsDir() {
+	// If it's a regular file (not a directory or symlink), write the content
+	if !info.IsDir() && lstat.Mode()&os.ModeSymlink == 0 {
 		file, err := os.Open(filePath)
 		if err != nil {
 			return err
